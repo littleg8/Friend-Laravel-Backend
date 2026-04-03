@@ -31,5 +31,10 @@ trait ProxyAsRepository
         return $this->getProxyRepository()->get($filters, $columns);
     }
 
+    public function paginate(array $filters = [], int $perPage = 15, array $columns = ['*'])
+    {
+        return $this->getProxyRepository()->paginate($filters, $perPage, $columns);
+    }
+
     abstract protected function getProxyRepository(): Repository;
 }

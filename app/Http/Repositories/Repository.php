@@ -2,7 +2,10 @@
 
 namespace App\Http\Repositories;
 
+use App\Http\Repositories\Filters\Filter;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use ReflectionClass;
 
 class Repository 
 {
@@ -20,26 +23,54 @@ class Repository
 
     public function update(array $filters, array $attributes)
     {
-        return $this->newQuery()->where($filters)->update($attributes);
+        $query = $this->newQuery();
+        return $this->applyWithFilter($query, $filters)->update($attributes);
     }
 
     public function delete(array $filters)
     {
-        return $this->newQuery()->where($filters)->delete();
+        $query = $this->newQuery();
+        return $this->applyWithFilter($query, $filters)->delete();
     }
 
     public function first(array $filters, array $columns = ['*'])
     {
-        return $this->newQuery()->where($filters)->first($columns);
+        $query = $this->newQuery();
+        return $this->applyWithFilter($query, $filters)->first($columns);
     }
 
     public function get(array $filters = [], array $columns = ['*'])
     {
-        return $this->newQuery()->where($filters)->get($columns);
+        $query = $this->newQuery();
+        return $this->applyWithFilter($query, $filters)->get($columns);
     }
 
-    public function updateOrCreate(array $filters, array $attributes, array $options = [])
+    public function paginate(array $filters = [], int $perPage = 15, array $columns = ['*'])
     {
-        return $this->model::updateOrCreate($filters, $attributes, $options);
+        $query = $this->newQuery();
+        return $this->applyWithFilter($query, $filters)->paginate($perPage, $columns);
+    }
+
+    public function applyWithFilter(Builder $query, array $withFilter)
+    {
+        $namespace = new ReflectionClass($this)->getNamespaceName();
+
+        foreach ($withFilter as $filter => $value) {
+            $filterClass = $namespace . '\\Filters\\' . $filter;
+
+            if (class_exists($filterClass)) {
+                $filterInstance = app($filterClass);
+                if ($filterInstance instanceof Filter) {
+                    // 執行實作的Filter Query
+                    $query = $filterInstance->apply($query, $value);
+                } else {
+                    throw new \Exception("Filter class must implement the Filter interface.");
+                }
+            } else {
+                throw new \Exception("Filter class not found.");
+            }
+        }
+
+        return $query;
     }
 }
